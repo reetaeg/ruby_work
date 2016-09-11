@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  
   root 'welcome#index'
   
   devise_for :users
@@ -7,6 +8,10 @@ Rails.application.routes.draw do
   end
 
   resources :posts
+  
+  resources :products do
+    collection { post :import }
+  end
   
   # get 'welcome/index'
 
