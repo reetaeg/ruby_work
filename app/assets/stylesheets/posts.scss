@@ -12,10 +12,22 @@
     font-size:1.5em;
     margin-bottom: .5em;
   }
+}
 
-
-
-
+.gallery {
+  overflow:auto;
+  .picture {
+    position:relative;
+    margin:1.5em 0;
+    .image img {
+    border: 1px solid #928c75;
+  }
+  .title {}
+  .content {}
+    .actions {
+     position:absolute;
+    }
+  }
 }
 
 input[type='file'] {

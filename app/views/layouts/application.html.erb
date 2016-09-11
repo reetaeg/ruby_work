@@ -6,6 +6,7 @@
   <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
   <%= csrf_meta_tags %>
   <meta name="viewport" content="width=device-width, initial-scale=1.0 maximum-scale=1.0 user-scalable=0" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
 <body>
 
@@ -19,8 +20,7 @@
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
       </button>
-
-      <%= link_to raw("X <i>Cafe</i>"), root_path, class:'navbar-brand' %>
+      <%= link_to raw("<i>Cafe</i>"), root_path, class:'navbar-brand' %>
 
     </div>
 
@@ -28,15 +28,20 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 
       <ul class="nav navbar-nav">
-
         <% Bulletin.all.each do |bulletin| %>
-            <li class="<%=params[:bulletin_id] == bulletin.id.to_s ? 'active' : '' %>"><a href="<%=bulletin_posts_path(bulletin.id)%>"><%=bulletin.title %> <span class="sr-only">(current)</span></a> </li>
+            <li class="<%=params[:bulletin_id] == bulletin.id.to_s ? 'active' : '' %>"><a href="<%=bulletin_posts_path(bulletin.id)%>"><%=bulletin.title.force_encoding("UTF-8") %> <span class="sr-only">(current)</span></a> </li>
         <% end %>
-
-
       </ul>
 
       <ul class="nav navbar-nav navbar-right">
+      	<% if user_signed_in? %>
+      		<li><%=link_to current_user.email,edit_user_password_path %></li>
+      		<li><%=link_to '로그아웃',destroy_user_session_path, method: :delete%></li>
+      	<% else %>
+      		<li><%=link_to '로그인',new_user_session_path %></li>
+      		<li><%=link_to '회원가입',new_user_registration_path %></li>
+      	<% end %>
+      	
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">설정<span class="caret"></span></a>
           <ul class="dropdown-menu">
@@ -55,8 +60,8 @@
 </nav>
 
 <div class="container">
-
-  <%= yield %>
+  <%= render partial: "shared/flash_messages", flash: flash %>
+  <%= yield.force_encoding("UTF-8") %>
 
 </div>
 </body>

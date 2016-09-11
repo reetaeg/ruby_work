@@ -1,10 +1,13 @@
 Rails.application.routes.draw do
+  root 'welcome#index'
+  
+  devise_for :users
   resources :bulletins do
     resources :posts
   end
 
   resources :posts
-  root 'welcome#index'
+  
   # get 'welcome/index'
 
 
