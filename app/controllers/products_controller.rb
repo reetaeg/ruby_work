@@ -1,10 +1,14 @@
 class ProductsController < ApplicationController
+  before_action :authenticate_user!
+  before_action :admin_only, :except => :index
+
+  helper_method :sort_column, :sort_direction
   before_action :set_product, only: [:show, :edit, :update, :destroy]
 
   # GET /products
   # GET /products.json
   def index
-    @products = Product.all
+    @products = Product.search(params[:search]).order(sort_column + ' ' + sort_direction).paginate(:per_page => 5, :page => params[:page])
   end
 
   # GET /products/1
@@ -76,4 +80,12 @@ class ProductsController < ApplicationController
     def product_params
       params.require(:product).permit(:name, :code, :type)
     end
+      
+  def sort_column
+    Product.column_names.include?(params[:sort]) ? params[:sort] : "name"
+  end
+  
+  def sort_direction
+    %w[asc desc].include?(params[:direction]) ? params[:direction] : "asc"
+  end
 end

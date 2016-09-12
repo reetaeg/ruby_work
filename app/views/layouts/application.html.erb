@@ -31,6 +31,7 @@
         <% Bulletin.all.each do |bulletin| %>
             <li class="<%=params[:bulletin_id] == bulletin.id.to_s ? 'active' : '' %>"><a href="<%=bulletin_posts_path(bulletin.id)%>"><%=bulletin.title.force_encoding("UTF-8") %> <span class="sr-only">(current)</span></a> </li>
         <% end %>
+            <li class=""><a href="<%=products_path%>"> 제품</a> </li>
       </ul>
 
       <ul class="nav navbar-nav navbar-right">

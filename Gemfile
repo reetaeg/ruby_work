@@ -58,5 +58,6 @@ gem "font-awesome-rails"
 gem 'mysql'
 gem 'mysql2','~> 0.3.18'
   
+gem 'will_paginate'
 
 gem 'devise'

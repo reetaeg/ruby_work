@@ -12,3 +12,23 @@ $navbar-default-link-hover-bg:black;
 @import 'posts';
 
 body { padding-top:60px;}
+
+// Color used for medium gray UI items within Foundation.
+$medium-gray: #cacaca;
+
+// the following variable should be adjusted in the _settings.scss file
+// changes the fonts size and circle size
+$pagination-font-size: rem-calc(18);
+
+// the following variable should be adjusted in the _settings.scss file
+// changes roundness based on font size
+$pagination-item-padding: rem-calc(6 15);
+
+.pagination a {
+  border: 1px solid $medium-gray;
+  border-radius: 50%;
+}
+
+.pagination a {
+  border-radius: 50%;
+}
