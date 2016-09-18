@@ -1,0 +1,1 @@
+json.partial! "nh_sales/nh_sale", nh_sale: @nh_sale

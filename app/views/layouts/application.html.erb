@@ -5,8 +5,13 @@
   <%= stylesheet_link_tag    'application', media: 'all', 'data-turbolinks-track' => true %>
   <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
   <%= csrf_meta_tags %>
+  
   <meta name="viewport" content="width=device-width, initial-scale=1.0 maximum-scale=1.0 user-scalable=0" />
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  
+  <link rel="stylesheet" type="text/css" href="http://cdn.datatables.net/1.10.12/css/jquery.dataTables.css">
+  <script type="text/javascript" charset="utf8" src="http://cdn.datatables.net/1.10.12/js/jquery.dataTables.js"></script>
+  
 </head>
 <body>
 
@@ -32,6 +37,7 @@
             <li class="<%=params[:bulletin_id] == bulletin.id.to_s ? 'active' : '' %>"><a href="<%=bulletin_posts_path(bulletin.id)%>"><%=bulletin.title.force_encoding("UTF-8") %> <span class="sr-only">(current)</span></a> </li>
         <% end %>
             <li class=""><a href="<%=products_path%>"> 제품</a> </li>
+            <li class=""><a href="<%=nh_sales_path%>"> 매출</a> </li>
       </ul>
 
       <ul class="nav navbar-nav navbar-right">

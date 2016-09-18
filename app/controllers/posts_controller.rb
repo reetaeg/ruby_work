@@ -6,6 +6,8 @@ class PostsController < ApplicationController
   # GET /posts.json
   def index
     @posts = @bulletin.posts.all
+    @total = @bulletin.posts.all.count
+    logger.info "Processing 카운트  : #{@total}" 
   end
 
   # GET /posts/1

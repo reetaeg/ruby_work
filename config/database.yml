@@ -1,17 +1,7 @@
-# SQLite version 3.x
-#   gem install sqlite3
-#
-#   Ensure the SQLite 3 gem is defined in your Gemfile
-#   gem 'sqlite3'
-#
 default: &default
   adapter: sqlite3
   pool: 5
   timeout: 5000
-
-#development:
-#  <<: *default
-#  database: db/development.sqlite3
   
 development:
   adapter: mysql    #사용할 database
@@ -23,10 +13,6 @@ development:
   password: cafe
   socket: /tmp/mysql.sock # 보통 mysql.sock은 tmp에 있다. (시스템에 따라..)
   
-
-# Warning: The database defined as "test" will be erased and
-# re-generated from your development database when you run "rake".
-# Do not set this db to the same as development or production.
 test:
   <<: *default
   database: db/test.sqlite3
@@ -34,3 +20,14 @@ test:
 production:
   <<: *default
   database: db/production.sqlite3
+
+###########################
+
+ora_db: &default
+  adapter: oracle_enhanced    #사용할 database
+  reconnect: false
+  database: samilnet.com:1522/ora10
+  pool: 5
+  username: samil3    # mysql에 접속할 id와 password
+  password: samil03
+  

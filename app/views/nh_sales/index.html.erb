@@ -1,0 +1,94 @@
+<p id="notice"><%= notice %></p>
+
+<h1>Nh Sales</h1>
+
+<%= form_tag nh_sales_path, :method => 'get' do %>
+  <%= hidden_field_tag :direction, params[:direction] %>
+  <%= hidden_field_tag :sort, params[:sort] %>
+  <p>
+    <%= text_field_tag :search, params[:search] %>
+    <%= submit_tag "Search", :name => nil %>
+  </p>
+<% end %>
+
+<table id="sales" class="display" cellspacing="0" width="100%">
+  <thead>
+    <tr>
+      <th>From code</th>
+      <th>From name</th>
+      <th>Sale number</th>
+      <th>Confirm date</th>
+      <th>Delivery number</th>
+      <th>To code</th>
+      <th>To name</th>
+      <th>Depart code</th>
+      <th>Depart name</th>
+      <th>Supply type</th>
+      <th>Order no</th>
+      <th>Product code</th>
+      <th>Product name</th>
+      <th>Product size</th>
+      <th>Product tax</th>
+      <th>Purchase unit price</th>
+      <th>Purchase amount</th>
+      <th>Supply price</th>
+      <th>Purchase tax</th>
+      <th>Purchase price</th>
+      <th>Commission</th>
+      <th>Commission tax</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% @nh_sales.each do |nh_sale| %>
+      <tr>
+        <td><%= nh_sale.from_code %></td>
+        <td><%= nh_sale.from_name %></td>
+        <td><%= nh_sale.sale_number %></td>
+        <td><%= nh_sale.confirm_date %></td>
+        <td><%= nh_sale.delivery_number %></td>
+        <td><%= nh_sale.to_code %></td>
+        <td><%= nh_sale.to_name %></td>
+        <td><%= nh_sale.depart_code %></td>
+        <td><%= nh_sale.depart_name %></td>
+        <td><%= nh_sale.supply_type %></td>
+        <td><%= nh_sale.order_no %></td>
+        <td><%= nh_sale.product_code %></td>
+        <td><%= nh_sale.product_name %></td>
+        <td><%= nh_sale.product_size %></td>
+        <td><%= nh_sale.product_tax %></td>
+        <td><%= nh_sale.purchase_unit_price %></td>
+        <td><%= nh_sale.purchase_amount %></td>
+        <td><%= nh_sale.supply_price %></td>
+        <td><%= nh_sale.purchase_tax %></td>
+        <td><%= nh_sale.purchase_price %></td>
+        <td><%= nh_sale.commission %></td>
+        <td><%= nh_sale.commission_tax %></td>
+        <td><%= link_to 'Show', nh_sale %>
+        	<%= link_to 'Edit', edit_nh_sale_path(nh_sale) %>
+        	<%= link_to 'Destroy', nh_sale, method: :delete, data: { confirm: 'Are you sure?' } %>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<br>
+
+<%= link_to 'New Nh sale', new_nh_sale_path , class:'btn btn-default'%>
+
+<%= form_tag import_nh_sales_path, multipart: true do %>
+  <%= file_field_tag :file %>
+  <%= submit_tag "Import", class:'btn btn-default' %>
+<% end %>
+
+<script>
+
+$(document).ready(function() {
+  $('#sales').DataTable({
+  	"scrollX": true
+  });
+});
+
+</script>

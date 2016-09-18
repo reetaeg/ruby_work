@@ -1,0 +1,1 @@
+json.array! @nh_sales, partial: 'nh_sales/nh_sale', as: :nh_sale

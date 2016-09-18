@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160912163403) do
+ActiveRecord::Schema.define(version: 20160917162913) do
 
   create_table "bulletins", force: :cascade do |t|
     t.string   "title",       limit: 255
@@ -29,6 +29,39 @@ ActiveRecord::Schema.define(version: 20160912163403) do
   end
 
   add_index "comments", ["post_id"], name: "index_comments_on_post_id", using: :btree
+
+  create_table "nh_sales", force: :cascade do |t|
+    t.string   "from_code",           limit: 255
+    t.string   "from_name",           limit: 255
+    t.string   "sale_number",         limit: 255
+    t.string   "confirm_date",        limit: 255
+    t.decimal  "delivery_number",                 precision: 10
+    t.string   "to_code",             limit: 255
+    t.string   "depart_code",         limit: 255
+    t.string   "depart_name",         limit: 255
+    t.string   "supply_type",         limit: 255
+    t.integer  "order_no",            limit: 4
+    t.string   "product_code",        limit: 255
+    t.string   "product_name",        limit: 255
+    t.string   "product_size",        limit: 255
+    t.decimal  "product_tax",                     precision: 10
+    t.decimal  "purchase_unit_price",             precision: 10
+    t.integer  "purchase_amount",     limit: 4
+    t.decimal  "supply_price",                    precision: 10
+    t.decimal  "purchase_tax",                    precision: 10
+    t.decimal  "purchase_price",                  precision: 10
+    t.decimal  "commission",                      precision: 10
+    t.decimal  "commission_tax",                  precision: 10
+    t.datetime "created_at",                                     null: false
+    t.datetime "updated_at",                                     null: false
+    t.string   "to_name",             limit: 255
+  end
+
+  add_index "nh_sales", ["confirm_date"], name: "index_nh_sales_on_confirm_date", using: :btree
+  add_index "nh_sales", ["from_code"], name: "index_nh_sales_on_from_code", using: :btree
+  add_index "nh_sales", ["product_code"], name: "index_nh_sales_on_product_code", using: :btree
+  add_index "nh_sales", ["sale_number", "order_no"], name: "index_nh_sales_on_sale_number_and_order_no", unique: true, using: :btree
+  add_index "nh_sales", ["to_code"], name: "index_nh_sales_on_to_code", using: :btree
 
   create_table "posts", force: :cascade do |t|
     t.string   "title",       limit: 255

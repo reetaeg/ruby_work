@@ -1,0 +1,32 @@
+<%= simple_form_for(@nh_sale) do |f| %>
+  <%= f.error_notification %>
+
+  <div class="form-inputs">
+    <%= f.input :from_code %>
+    <%= f.input :from_name %>
+    <%= f.input :sale_number %>
+    <%= f.input :confirm_date %>
+    <%= f.input :delivery_number %>
+    <%= f.input :to_code %>
+    <%= f.input :to_name %>
+    <%= f.input :depart_code %>
+    <%= f.input :depart_name %>
+    <%= f.input :supply_type %>
+    <%= f.input :order_no %>
+    <%= f.input :product_code %>
+    <%= f.input :product_name %>
+    <%= f.input :product_size %>
+    <%= f.input :product_tax %>
+    <%= f.input :purchase_unit_price %>
+    <%= f.input :purchase_amount %>
+    <%= f.input :supply_price %>
+    <%= f.input :purchase_tax %>
+    <%= f.input :purchase_price %>
+    <%= f.input :commission %>
+    <%= f.input :commission_tax %>
+  </div>
+
+  <div class="form-actions">
+    <%= f.button :submit %>
+  </div>
+<% end %>

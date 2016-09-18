@@ -61,3 +61,6 @@ gem 'mysql2','~> 0.3.18'
 gem 'will_paginate'
 
 gem 'devise'
+
+gem 'ruby-oci8'
+gem 'activerecord-oracle_enhanced-adapter','~> 1.6.0'

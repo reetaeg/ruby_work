@@ -1,5 +1,10 @@
 Rails.application.routes.draw do
   
+  resources :nh_sales do
+    collection { post :import }
+    collection { get :search }
+  end
+
   root 'welcome#index'
   
   devise_for :users
