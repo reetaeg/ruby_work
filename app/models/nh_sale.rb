@@ -1,4 +1,8 @@
+#encoding: utf-8
 class NhSale < ActiveRecord::Base
+  
+  nilify_blanks
+  
   require 'csv'
 
 
@@ -47,5 +51,6 @@ class NhSale < ActiveRecord::Base
      
     end
   end
+  
   
 end

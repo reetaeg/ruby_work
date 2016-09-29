@@ -1,8 +1,11 @@
 Rails.application.routes.draw do
   
+  mount RailsAdmin::Engine => '/admin', as: 'rails_admin'
+  
   resources :nh_sales do
-    collection { post :import }
-    collection { get :search }
+    collection { 
+      post 'import'
+    }
   end
 
   root 'welcome#index'

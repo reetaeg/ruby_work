@@ -21,5 +21,7 @@ module ApplicationHelper
     direction = (column == sort_column && sort_direction ==  "asc" ) ? "desc" : "asc" 
     link_to title, {:sort => column, :direction => direction}, {:class => css_class}
   end
-  
+  def utf8(str)
+     str.blank? ? "":str.force_encoding("utf-8")
+  end 
 end

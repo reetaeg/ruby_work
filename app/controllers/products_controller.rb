@@ -1,6 +1,7 @@
+#encoding utf-8
 class ProductsController < ApplicationController
   before_action :authenticate_user!
-  before_action :admin_only, :except => :index
+  #before_action :admin_only, :except => :index
 
   helper_method :sort_column, :sort_direction
   before_action :set_product, only: [:show, :edit, :update, :destroy]

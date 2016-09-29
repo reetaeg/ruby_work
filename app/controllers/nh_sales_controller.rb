@@ -1,21 +1,39 @@
+#encoding: utf-8
 class NhSalesController < ApplicationController
   before_action :authenticate_user!
   before_action :set_nh_sale, only: [:show, :edit, :update, :destroy]
 
   helper_method :sort_column, :sort_direction
 
-  # GET /nh_sales
-  # GET /nh_sales.json
+  # GET /nh_sales/index
   def index
-    @total = NhSale.all.count
-    @nh_sales = NhSale.all.order(sort_column + ' ' + sort_direction).paginate(:per_page => 10 , :page => params[:page])
+
+     respond_to do |format|
+       format.html 
+       format.json {
+          logger.info "-----> #{params}"
+          per_page = params[:length].to_i > 0 ? params[:length].to_i : 10
+          page = params[:start].to_i/per_page + 1
+          
+          @draw = params[:draw]
+          order = params["order"]
+          sort = order["0"]["column"]
+          sort_direction = order["0"]["dir"]
+          
+          sort_column =params["columns"][sort]["data"]
+          
+          start_date= params[:start_date]
+          end_date= params[:end_date]
+          
+          #logger.info "=========#{column}"
+          date_range='20160701'..'20160704'
+          @total = NhSale.where(confirm_date: date_range).count
+          @nh_sales = NhSale.where(confirm_date: date_range).order(sort_column + ' ' + sort_direction).paginate(:per_page => per_page , :page => page)       
+       }
+     end
+
   end
   
-  def search
-    
-    @nh_sales = NhSale.all.paginate(:per_page => 10 , :page => params[:page])
-    render json: @nh_sales
-  end
 
   # GET /nh_sales/1
   # GET /nh_sales/1.json

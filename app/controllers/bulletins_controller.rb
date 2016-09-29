@@ -1,3 +1,4 @@
+#encoding:utf-8
 class BulletinsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_bulletin, only: [:show, :edit, :update, :destroy]
