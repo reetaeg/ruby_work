@@ -39,13 +39,8 @@
 var table;
 $(document).ready(function() {
   table= $('#sales').DataTable({
-  	//"dom": '<"top"l<"toolbar">>rt<"bottom"ip><"clear">', 
-  	"scrollX": true,
   	"processing": true,
     "serverSide": true,
-    "fixedColumns" : {
-    	leftColumns:2
-    },
   	"ajax": {
   		"uri": "nh_sales.json",
   		"type": "GET",
@@ -54,26 +49,28 @@ $(document).ready(function() {
 					d.end_date = "2016-07-04";
 				}	
   	 },
+  	 //"dom": '<"top"l<"toolbar">>rt<"bottom"ip><"clear">', 
+  	"scrollX": true,
+    "fixedColumns" : {
+    	leftColumns:2
+    },
     "columns": [
         { "data": "to_code" },
         { "data": "to_name" },
         { "data": "from_code" },
         { "data": "from_name" },
-        { "data": "sale_number" },
-        
+        { "data": "sale_number" },        
         { "data": "confirm_date" },
         { "data": "supply_type" },
         { "data": "product_name" },
         { "data": "product_code" },
-        { "data": "purchase_amount" },
-        
+        { "data": "purchase_amount" },        
         { "data": "purchase_unit_price" },
         { "data": "purchase_tax" },
         { "data": "purchase_price" },
         { "data": "supply_price" },
         { "data": "commission" },
         { "data": "commission_tax" }
-
     ],
     "pagingType": "full_numbers"
   });
