@@ -56,6 +56,7 @@ gem "font-awesome-rails"
 
 
 gem 'mysql'
+gem 'ruby-mysql'
 gem 'mysql2','~> 0.3.18'
   
 gem 'will_paginate', '>=3.0.pre2'
@@ -73,3 +74,5 @@ gem 'connect'
 gem 'utf8-cleaner'
 
 gem 'rails_admin', '~> 1.0'
+
+

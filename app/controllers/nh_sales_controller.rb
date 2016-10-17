@@ -11,7 +11,7 @@ class NhSalesController < ApplicationController
      respond_to do |format|
        format.html 
        format.json {
-          logger.info "-----> #{params}"
+          logger.info "-----> #{view_context}"
           per_page = params[:length].to_i > 0 ? params[:length].to_i : 10
           page = params[:start].to_i/per_page + 1
           
@@ -24,9 +24,8 @@ class NhSalesController < ApplicationController
           
           start_date= params[:start_date]
           end_date= params[:end_date]
-          
-          #logger.info "=========#{column}"
           date_range='20160701'..'20160704'
+
           @total = NhSale.where(confirm_date: date_range).count
           @nh_sales = NhSale.where(confirm_date: date_range).order(sort_column + ' ' + sort_direction).paginate(:per_page => per_page , :page => page)       
        }
