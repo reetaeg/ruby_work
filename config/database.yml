@@ -4,7 +4,7 @@ default: &default
   timeout: 5000
   
 development:
-  adapter: mysql    #사용할 database
+  adapter: mysql
   encoding: utf8
   reconnect: false
   database: cafe  # 실제 mysql에 생성되는 database 이름
