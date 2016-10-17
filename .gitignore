@@ -19,5 +19,6 @@
 # Ignore Upload File
 /public/uploads/*
 
-.idea/*
-*.iml
+# Ignore etc
+/.idea/*
+/*.iml
