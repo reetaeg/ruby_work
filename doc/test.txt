@@ -1,0 +1,649 @@
+#####################################################
+
+task "resque:setup" => :environment
+
+require 'resque/tasks'
+
+task "resque:work_dont_fork" => ["resque:preload", "resque:setup"] do
+  queues = (ENV['QUEUES'] || ENV['QUEUE']).to_s.split(',')
+
+  begin
+    worker = Resque::Worker.new(*queues)
+    worker.cant_fork = true
+    worker.verbose = ENV['LOGGING'] || ENV['VERBOSE']
+    worker.very_verbose = ENV['VVERBOSE']
+  rescue Resque::NoQueueError
+    puts $!, $@
+    abort "set QUEUE var, e.g.$ QUEUE=critical,high rake resque:work"
+  end
+
+  if ENV['PIDFILE']
+    File.open(ENV['PIDFILE'], 'w') { |f| f << worker.pid }
+  end
+
+  worker.log "Starting worker #{worker}"
+
+  worker.work(0.1) # interval, will block
+end
+#$TESTING = true
+
+#####################################################
+
+namespace :cache do
+  desc 'Clear memcache'
+  task :clear => :environment do
+    Rails.cache.clear
+  end
+
+  desc "Delete a cached element by key"
+  task :delete, [:key] => :environment do |t, args|
+    Rails.cache.delete args[:key]
+  end
+end
+
+#####################################################
+require 'eu_central_bank'
+require 'money'
+
+namespace :jobs do
+  desc 'daily sales'
+  task :daily_sales, [:start_date, :end_date] => :environment do |_t, args|
+
+    puts "Daily Sales Rails.env:#{Rails.env}, start_date:#{args[:start_date]}, end_date:#{args[:end_date]}"
+
+    process_time = Date.current.to_time
+    start_date = (args[:start_date].blank? ? process_time : Time.parse(args[:start_date])).getutc
+    end_date = (args[:end_date].blank? ? process_time : Time.parse(args[:end_date])).getutc + 1.day
+
+    payment_logs = Wakanda::PaymentLog
+                       .where('created_at >= ? and created_at < ?', start_date, end_date)
+                       .group('game_id', 'platform', 'DATE_FORMAT(CONVERT_TZ(created_at, "+0:00", "+9:00"), "%Y-%m-%d")', 'currency')
+                       .sum('price')
+
+    # 환율데이터
+    eu_bank = EuCentralBank.new
+    Money.default_bank = eu_bank
+    eu_bank.update_rates
+
+    # 마켓 os정보 가져오기. 예외적으로 게임샵은 gshop
+    markets = Gamecenter::Market.all
+    os_markets = {}
+    markets.each { |m| os_markets[m.platform] = m.os }
+    os_markets['gshop'] = 'gshop'
+    puts "os_markets = #{os_markets.inspect}"
+
+    sums = {}
+    payment_logs.each do |p|
+      game_id, platform, sale_date, currency = p[0]
+      sum = p[1]
+      # puts "game_id = #{game_id.inspect}, platform = #{platform.inspect}, sale_date = #{sale_date.inspect}, sum = #{sum}"
+      os = os_markets[platform]
+      next if os.blank?
+      sums[sale_date] = {} if sums[sale_date].blank?
+
+      # 앱 정보 가져오기
+      app = Gamecenter::App.where('client_id = ? or capri_app_id = ?', game_id, game_id).first
+      next if app.blank?
+
+      if sums[sale_date][app.id].blank?
+        sums[sale_date][app.id] = {}
+        sums[sale_date][app.id]['capri_app_id'] = app.capri_app_id
+        sums[sale_date][app.id]['android'] = 0
+        sums[sale_date][app.id]['ios'] = 0
+        sums[sale_date][app.id]['gshop'] = 0
+      end
+
+      begin
+        value = 10000.to_money(currency).exchange_to('KRW').amount / 10000
+        # puts "currency = #{currency}, value = #{value}, sum = #{sum}"
+        sums[sale_date][app.id][os] += (sum * value)
+      rescue => e
+        puts "e = #{e.inspect}"
+        puts "#{currency} to KRW IS NULL"
+      end
+    end
+
+    sums.each do |sale_date, sales|
+      puts "start sale_date = #{sale_date}"
+      date = sale_date.to_date
+      sales.each do |app_id, data|
+        # 앱 출시정보 가져오기
+        app_displays = Gamecenter::AppDisplay.where('app_id = ?', app_id).index_by(&:os)
+        d_app = Gamecenter::DApp.find_by_capri_app_id(data['capri_app_id'])
+
+        is_release_gshop = (!d_app.andand.d_app_release_request.blank? && d_app.d_app_release_request.release_at.to_date <= date)
+        is_release_ios = (!app_displays['ios'].blank? && app_displays['ios'].released_at <= date)
+        is_release_android = (!app_displays['android'].blank? && app_displays['android'].released_at <= date)
+
+        # 아무것도 출시하지 않으면 기록하지 않음.
+        next if !is_release_gshop && !is_release_android && !is_release_ios
+
+        daily_sale = DailySale.find_or_initialize_by_app_id_and_sale_date(app_id: app_id, sale_date: sale_date)
+        daily_sale.android =  is_release_android ? data['android'] : 0
+        daily_sale.ios =  is_release_ios ? data['ios'] : 0
+        daily_sale.gshop = is_release_gshop ? data['gshop'] : 0
+        daily_sale.save
+        puts "#{sale_date}: app_id = #{app_id}, ios = #{data['ios']}, android = #{data['android']}, gshop = #{data['gshop']}"
+      end
+      puts "end sale_date = #{sale_date}"
+      puts
+    end
+  end
+end
+
+##############################
+
+
+#encoding: utf-8
+class OriginalUploadsController < ApplicationController
+  load_and_authorize_resource
+  def index
+    if current_user.role == 'admin'
+      @original_uploads = OriginalUpload.order('created_at desc').page params[:page]
+    end
+  end
+
+  def edit
+    @original_upload = OriginalUpload.find(params[:id])
+  end
+
+  def new
+    @original_upload = OriginalUpload.new(params[:original_upload])
+  end
+
+  def create
+    @original_upload = OriginalUpload.new(params[:original_upload])
+
+    @original_upload.save!
+    session[:report] = { app_id: @original_upload.app_id,
+        target_year: @original_upload.target_year,
+        target_month: @original_upload.target_month,
+        original_upload_id: @original_upload.id,
+        kind: @original_upload.kind,
+        platform: @original_upload.platform }
+
+    respond_to do |format|
+      format.json { render json: @original_upload, status: :created, location: @original_upload }
+    end
+  rescue => exception
+    @original_upload.progress_string.blank? ? flash[:error] = "업로드한 파일을 확인해 주세요" : flash[:error] = "#{@original_upload.progress_string}"
+
+    # 에러 메시지를 숨긴다.
+    @original_upload.errors.messages[:file] = [""]
+
+    respond_to do |format|
+      format.json { render json: @original_upload.errors, status: :unprocessable_entity }
+      format.html { render :new  }
+    end
+
+    Rails.logger.info exception.inspect
+    # Application Controller 에 있는 WatchTower 에게 에러를 넘기지 않는다.
+  end
+
+
+  def show
+    @original_upload = OriginalUpload.find(params[:id])
+
+    respond_to do |format|
+      format.html { render :nothing => true }
+      format.json { render json: @original_upload.to_json(only: [:id, :status, :status_value, :progress_string], methods: :status_value) }
+    end
+  end
+
+  def destroy
+    @original_upload = OriginalUpload.find(params[:id])
+    @original_upload.destroy
+
+    redirect_to original_uploads_url
+  end
+
+  def new_by_multiple_games
+    @original_upload = OriginalUpload.new(params[:original_upload])
+  end
+
+  def create_by_multiple_games
+    @original_upload = OriginalUpload.new(params[:original_upload])
+    @original_upload.save!
+    session[:multiple_reports] = { target_year: @original_upload.target_year,
+        target_month: @original_upload.target_month,
+        original_upload_id: @original_upload.id,
+        kind: @original_upload.kind,
+        platform: @original_upload.platform,
+        partner_id: @original_upload.partner_id }
+    respond_to do |format|
+      format.json { render json: @original_upload, status: :created, location: @original_upload }
+    end
+  rescue => exception
+    @original_upload.progress_string.blank? ? flash[:error] = "업로드한 파일을 확인해 주세요" : flash[:error] = "#{@original_upload.progress_string}"
+
+    # 에러 메시지를 숨긴다.
+    @original_upload.errors.messages[:file] = [""]
+
+    # Application Controller 에 있는 WatchTower 에게 에러를 넘기지 않는다.
+    respond_to do |format|
+      format.json { render json: @original_upload.errors, status: :unprocessable_entity }
+      format.html { render action: "new_by_multiple_games" }
+    end
+  end
+
+
+  def new_multiple_reports
+    @upload_info = session[:multiple_reports]
+    @original_upload = OriginalUpload.find(params[:id])
+
+    @apps = []
+    if current_user.role == 'admin' && session[:multiple_reports][:partner_id]
+      partner = Partner.find(session[:multiple_reports][:partner_id])
+      @apps = partner.apps
+    else
+      @apps = App.where(id: accessible_app_ids)
+    end
+  end
+
+  def create_multiple_reports
+    @original_upload = OriginalUpload.find(params[:id])
+
+    unless params[:apps]
+      redirect_to new_multiple_reports_original_upload_path(@original_upload), :flash => { :error => "상품코드를 선택해주세요." }
+      return
+    end
+
+    target_year = params[:target_year]
+    target_month = params[:target_month]
+
+    product_keys = (params[:apps].map {|k, v| v[:product_keys]}).flatten
+
+    product_key_app_id_hash = Hash.new
+    params[:apps].each do |k, v|
+      v[:product_keys].each do |product_key|
+        product_key_app_id_hash[product_key] = k
+      end
+    end
+
+    @original_upload.async_generate_reports(product_keys, {target_year: target_year, target_month: target_month, product_key_app_id_hash: product_key_app_id_hash})
+    respond_to do |format|
+      format.json { head :no_content }
+    end
+  end
+
+  def download_file
+    @original_upload = OriginalUpload.find(params[:id])
+    send_file(@original_upload.file.path,
+              :disposition => 'attachment', :url_based_filename => false)
+  end
+end
+
+######################################
+
+#encoding: utf-8
+require 'csv'
+
+require 'zip/zipfilesystem'
+
+class OriginalUpload < ActiveRecord::Base
+  attr_accessible :kind, :platform, :product_keys, :status, :file
+  attr_accessible :app_id, :target_year, :target_month, :partner_id
+
+  attr_accessor :app_id, :target_year, :target_month, :partner_id
+
+  store :product_key_store, accessors: [:product_keys]
+
+  STATUSES = {'uploaded' => '파일 업로드 완료', 'waiting_for_analyzing' => '분석대기', 'analyzing' => '분석중', 'analyzed' => '분석 완료', 'fail_to_analyze' => '분석 실패',
+              'waiting_for_generating_reports' => '생성 대기', 'generating' => '생성중', 'generated' => '생성 완료', 'fail_to_generate' => '생성 실패'
+  }
+  KINDS = {'payout' => '페이아웃리포트', 'playapp' => '수익판매보고서'}
+  PLATFORMS = {'google' => 'Google', 'apple' => 'Apple'}
+
+  mount_uploader :file, OriginalUploader
+
+  validates_inclusion_of :status, :in => STATUSES.keys, allow_nil: true
+  validates_inclusion_of :kind, :in => KINDS.keys, allow_nil: true
+  validates_inclusion_of :platform, :in => PLATFORMS.keys, allow_nil: true
+  validates_presence_of :file, message: '파일을 선택한뒤에 파일 업로드를 해주세요'
+
+  after_create :reset_kind, :async_reset
+
+  def async_reset
+    update_attribute(:status, 'waiting_for_analyzing')
+    Resque.enqueue(OriginalUploadAnalyzer, self.id)
+  end
+
+  def reset
+    unless is_acceptable_filename?
+      update_attribute(:progress_string, '업로드 파일 확장자를 확인해 주세요. (Google : zip, cvs / Apple : zip, txt.gz)' )
+      update_attribute(:status, 'fail_to_generate')
+
+      raise(RuntimeError, "Unknown file extension. [#{self.platform}] #{file.path}")
+    end
+
+    reset_product_keys
+  end
+
+  def reset_kind
+
+    unless is_acceptable_filename?
+      update_attribute(:progress_string, '업로드 파일 확장자를 확인해 주세요. (Google : zip, cvs / Apple : zip, txt.gz)' )
+      update_attribute(:status, 'fail_to_generate')
+      raise(RuntimeError, "Unknown file extension. [#{self.platform}] #{file.path}")
+    end
+
+    # 업로드한 파일의 날자가 정확한지 확인합니다.
+
+    year = target_year.to_i
+    month = target_month.to_i
+
+    unzipFilesPath  = extract_files
+    unzipFilesPath.each do |filePath|
+
+      parseDate = nil
+
+      fileData = File.read(filePath)
+      col_sep = nil
+
+      case self.platform
+        when 'google'
+          col_sep = ","
+        when 'apple'
+          col_sep = "\t"
+      end
+
+      CSV.foreach filePath, col_sep: col_sep, row_sep: :auto do |l|
+        # Google / Playapp
+        next if l[0] == 'Description'
+
+        # Google / Payout
+        next if l[0] == 'Order Number'
+        next if l[0] == '#---------------------'
+        next if l[0] == '# Payout report'
+
+        # Apple
+        next if l[0] == 'Start Date'
+
+        begin
+          case self.platform
+            when 'google'
+              parseDate = Date.parse(l[1])
+            when 'apple'
+              # parseDate = Date.strptime(l[0], "%m/%d/%Y")
+              break
+          end
+        rescue ArgumentError
+          next
+        end
+
+        unless parseDate.blank?
+
+          unless parseDate.year == year && parseDate.mon == month
+            update_attribute(:progress_string, '현재 정산년월과 리포트 원본 파일의 정산년월이 일치하지 않습니다.  리포트 원본 파일을 확인해 주세요.')
+            update_attribute(:status, 'fail_to_generate')
+
+            Rails.logger.info 'START 현재 정산년월과 리포트 원본 파일의 정산년월이 일치하지 않습니다'
+            Rails.logger.info l[1]
+            Rails.logger.info parseDate.inspect
+            Rails.logger.info 'END   현재 정산년월과 리포트 원본 파일의 정산년월이 일치하지 않습니다'
+
+            raise(RuntimeError, "현재 정산년월과 리포트 원본 파일의 정산년월이 일치하지 않습니다.  리포트 원본 파일을 확인해 주세요. ")
+          end
+
+          break
+        end
+      end
+    end
+
+    begin
+      return unless self.platform == 'google'
+
+      file_path = extract_files[0]
+
+      head10 = ""
+      kind = nil
+      line_cnt = 0
+      File.open(file_path).each do |line|
+        head10 += line
+        break if line_cnt > 10
+        line_cnt += 1
+      end
+      CSV.parse(head10).each do |e|
+        kind = 'playapp' if e == Chios::PlayappAnalyzer::HEADER_COLS
+        kind = 'payout' if e == Chios::PayoutAnalyzer::HEADER_COLS
+        break if kind != nil
+      end
+      update_attribute(:kind, kind)
+    rescue => e
+      logger.info "fail to reset kind"
+      logger.info e.class
+      logger.info e.message
+      logger.info e.backtrace
+
+      update_attribute(:progress_string, '구글 매출파일 타입에러')
+      update_attribute(:status, 'fail_to_generate')
+      raise e
+    end
+  end
+
+  def reset_product_keys
+    product_ids = []
+    file_paths = extract_files
+    file_paths.each do |file_path|
+      product_ids += self.extract_product_ids_method.call(file_path) do |p|
+        update_attribute(:progress_string, "#{p}%")
+      end
+
+      product_ids.uniq!
+    end
+
+    logger.info "product_ids.inspect start"
+    logger.info product_ids.inspect
+    logger.info "product_ids.inspect end"
+
+    self.product_keys = product_ids.sort
+    self.save
+  end
+
+  def extract_files
+    begin
+      if self.platform == 'google'
+        extract_google_files
+      elsif self.platform == 'apple'
+        extract_apple_files
+      end
+    rescue => e
+      update_attribute(:progress_string, '압축파일 에러')
+      update_attribute(:status, 'fail_to_generate')
+
+      raise e
+    end
+  end
+
+  def extract_apple_files
+    files = []
+    if file.path.end_with? '.zip'
+      files = extract_apple_zip_file
+    elsif file.path.end_with? '.txt.gz'
+      files = extract_apple_gz_file
+    end
+    files
+  end
+
+  def extract_google_files
+    if file.path.end_with? '.csv'
+      [file.path]
+    elsif file.path.end_with? '.zip'
+      files = []
+      Zip::ZipFile.open(self.file.path) do |zip_file|
+        zip_file.each do |f|
+          next if f.directory? or f.parent_as_string.present?
+
+          f_path = File.join("tmp/original-upload/#{self.id}", f.name)
+          FileUtils.mkdir_p(File.dirname(f_path))
+          zip_file.extract(f, f_path) unless File.exist?(f_path)
+
+          if f_path.end_with? ".csv"
+            files << f_path
+          end
+        end
+      end
+      return files
+    else
+      []
+    end
+  end
+
+  def extract_apple_gz_file
+    f_path = File.join("tmp/original-upload/#{self.id}", File.basename(self.file.path))
+    FileUtils.mkdir_p(File.dirname(f_path))
+
+    txt_f_path = f_path.gsub(".txt.gz", ".txt")
+
+    File.open(txt_f_path, "w") do |f|
+      Zlib::GzipReader.open(self.file.path) {|gz| f.write(gz.read)}
+    end
+
+    [txt_f_path]
+  end
+
+  def extract_apple_zip_file
+    files = []
+    Zip::ZipFile.open(self.file.path) do |zip_file|
+      zip_file.each do |f|
+        next if f.directory?
+        next if f.parent_as_string && f.parent_as_string.include?('__MACOSX')
+
+        f_path = File.join("tmp/original-upload/#{self.id}", f.name)
+
+        FileUtils.mkdir_p(File.dirname(f_path))
+        zip_file.extract(f, f_path) unless File.exist?(f_path)
+
+        if f_path.end_with? ".txt.gz"
+          txt_f_path = f_path.gsub(".txt.gz", ".txt")
+
+          File.open(txt_f_path, "w") do |f|
+            Zlib::GzipReader.open(f_path) {|gz| f.write(gz.read)}
+          end
+
+          files << txt_f_path
+        elsif f_path.end_with? ".txt"
+          files << f_path
+        end
+      end
+    end
+    files
+  end
+
+  def status_value
+    STATUSES[status]
+  end
+
+  def is_acceptable_filename?
+    if self.platform == 'google'
+      (file.path.end_with? '.zip') || (file.path.end_with? '.csv')
+    elsif self.platform == 'apple'
+      (file.path.end_with? '.zip') || (file.path.end_with? '.txt.gz')
+    else
+      false
+    end
+  end
+
+  def async_generate_reports(product_keys, hash={})
+    update_attribute(:status, '`waiting_for_generating_reports')
+    update_attribute(:progress_string, nil)
+    Resque.enqueue(ReportsGenerator, self.id, product_keys, hash)
+  end
+
+  def generate_reports(product_keys, hash={})
+    hash = hash.with_indifferent_access
+
+    target_year = hash[:target_year]
+    target_month = hash[:target_month]
+    report_attributes = hash[:report_attributes]
+    product_key_app_id_hash = hash[:product_key_app_id_hash]
+
+    reports = []
+
+    app_records_hash = Hash.new
+    record_hashs = self.extract_record_hashs(product_keys)
+    record_hashs.each do |record_hash|
+      app_id = product_key_app_id_hash[record_hash[:product_identity]]
+      app_records_hash[app_id] = [] if app_records_hash[app_id] == nil
+      app_records_hash[app_id] << record_hash
+    end
+
+    idx = 0
+    app_records_hash.each do |app_id, record_hash_array|
+      monthly_report = MonthlyReport.where(app_id: app_id, target_year: target_year, target_month: target_month).first_or_create
+
+      if self.platform == 'google'
+        report = monthly_report.google_report
+      elsif self.platform == 'apple'
+        report = monthly_report.apple_report
+      end
+
+      if report
+        report.records.destroy_all
+      else
+        report = Report.new
+        report.monthly_report = monthly_report
+        report.platform = self.platform
+        report.all_product_keys = self.product_keys
+        report.product_keys = record_hash_array.map {|x| x[:product_identity]}.uniq
+        report.status = 'generated'
+        report.save
+      end
+
+      record_hash_array.each do |record_hash|
+        record = report.records.new(record_hash)
+        record.reset
+        record.save
+
+        idx += 1
+        update_attribute(:progress_string, "[매출내역 생성] #{idx}/#{record_hashs.size}") if idx % 10 == 0
+      end
+
+      report.save
+      report.propagate_change
+    end
+  end
+
+  def extract_record_hashs(product_keys)
+    records = []
+    file_paths = self.extract_files
+    file_paths.each do |file_path|
+      records += self.extract_records_method.call(file_path, product_keys) do |p|
+        update_attribute(:progress_string, "[매출파일 읽기] #{p}%")
+      end
+    end
+
+    records
+  end
+
+  def extract_records_method
+    if self.platform == 'google'
+      if self.kind == 'payout'
+        Chios::PayoutAnalyzer.method(:extract_records)
+      elsif self.kind == 'playapp'
+        Chios::PlayappAnalyzer.method(:extract_records)
+      end
+    elsif self.platform == 'apple'
+      Chios::AppstoreAnalyzer.method(:extract_records)
+    end
+  end
+
+  def extract_product_ids_method
+    begin
+      if self.platform == 'google'
+        if self.kind == 'payout'
+          Chios::PayoutAnalyzer.method(:extract_product_ids)
+        elsif self.kind == 'playapp'
+          Chios::PlayappAnalyzer.method(:extract_product_ids)
+        end
+      elsif self.platform == 'apple'
+        Chios::AppstoreAnalyzer.method(:extract_product_ids)
+      end
+    rescue => e
+      update_attribute(:progress_string, '매출파일 분석 에러')
+      update_attribute(:status, 'fail_to_generate')
+
+      raise e
+    end
+  end
+end
